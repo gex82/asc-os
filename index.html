@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASC‑OS Demo — Autonomous Supply Chain OS</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">ASC‑OS</div>
+      <div class="presenterToggle">
+        <label><input type="checkbox" id="presenterMode"/> Presenter Mode</label>
+      </div>
+      <nav id="nav">
+        <button data-view="canvas" class="active">Canvas (Guided)</button>
+        <button data-view="control">Control Tower</button>
+        <button data-view="value">Value Impact</button>
+        <button data-view="mesh">Agent Mesh</button>
+        <button data-view="knowledge">Knowledge Layer</button>
+        <button data-view="governance">Governance & Guardrails</button>
+        <button data-view="ascmodel">Data Contracts & ASC Model</button>
+        <button data-view="connectors">Connectors</button>
+        <button data-view="gallery">Agent Gallery</button>
+        <button data-view="timeline">Timeline</button>
+        <button data-view="inbox">Inbox (Approvals)</button>
+        <button data-view="audit">Audit & Export</button>
+      </nav>
+      <div class="footnote">vNEXT • Static SPA • Cloudflare‑ready</div>
+    </aside>
+
+    <main>
+      <!-- Top controls -->
+      <header class="controls">
+        <div class="chips">
+          <div class="chip">
+            <label>Industry</label>
+            <select id="industry">
+              <option value="CPG">CPG</option>
+              <option value="LifeSciences">Life Sciences</option>
+            </select>
+          </div>
+          <div class="chip">
+            <label>Role</label>
+            <select id="role">
+              <option value="Executive">Executive</option>
+              <option value="Planner">Planner</option>
+            </select>
+          </div>
+          <div class="chip">
+            <label>GxP Mode</label>
+            <input type="checkbox" id="gxp"/>
+          </div>
+          <div class="chip">
+            <label>Autonomy Threshold</label>
+            <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.7"/>
+            <span id="thresholdVal">0.70</span>
+          </div>
+          <button id="runScenario" class="primary">Run Scenario</button>
+        </div>
+      </header>
+
+      <!-- Views -->
+      <section id="view-canvas" class="view active">
+        <div class="grid two">
+          <div class="card">
+            <h3>Readiness at a Glance</h3>
+            <div id="readinessSummary" class="readiness"></div>
+            <div class="missingPills" id="missingPills"></div>
+            <div id="heatmap" class="heatmap"></div>
+          </div>
+          <div class="card">
+            <h3>Guided Storyline</h3>
+            <ol class="story">
+              <li><strong>Control</strong>: Set Industry, Role, GxP, Threshold</li>
+              <li><strong>Run</strong>: Execute a curated scenario</li>
+              <li><strong>Value</strong>: See KPI deltas and the “So‑What”</li>
+              <li><strong>Mesh</strong>: Watch agents interact (policy checks inline)</li>
+              <li><strong>Governance</strong>: Guardrails fired & approvals</li>
+              <li><strong>Architecture</strong>: ASC Model & Connectors</li>
+            </ol>
+            <div class="soWhat" id="soWhatBanner">So‑What: —</div>
+            <div class="actions">
+              <button class="secondary" id="startGuided">Start Guided Flow</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-control" class="view">
+        <div class="card">
+          <h3>Scenario Catalog</h3>
+          <div id="scenarioList" class="list"></div>
+        </div>
+        <div class="card">
+          <h3>Risk & Posture</h3>
+          <div id="riskDial" class="dial">—</div>
+          <div id="kpiPreview" class="kpis"></div>
+        </div>
+      </section>
+
+      <section id="view-value" class="view">
+        <div class="grid three">
+          <div class="card"><h3>KPI Deltas</h3><div id="kpis"></div></div>
+          <div class="card"><h3>Risk Radar</h3><canvas id="radar" width="320" height="220"></canvas></div>
+          <div class="card"><h3>Scenario Journal</h3><div id="journal" class="journal"></div></div>
+        </div>
+      </section>
+
+      <section id="view-mesh" class="view">
+        <div class="grid two">
+          <div class="card">
+            <h3>Agent Mesh (Graph)</h3>
+            <svg id="meshGraph" viewBox="0 0 700 420"></svg>
+            <div class="legend">
+              <span class="badge ok">Policy Pass</span>
+              <span class="badge warn">Guardrail</span>
+              <span class="badge block">Blocked</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Messages</h3>
+            <table id="meshTable" class="table"></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-knowledge" class="view">
+        <div class="grid two">
+          <div class="card">
+            <h3>Policies (Knowledge Layer)</h3>
+            <pre id="policySnippet" class="code"></pre>
+          </div>
+          <div class="card">
+            <h3>Models & Tools</h3>
+            <div id="modelRegistry" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-governance" class="view">
+        <div class="grid two">
+          <div class="card">
+            <h3>Guardrails</h3>
+            <ul id="guardrails" class="list"></ul>
+          </div>
+          <div class="card">
+            <h3>Approvals</h3>
+            <div id="approvalRules" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-ascmodel" class="view">
+        <div class="card">
+          <h3>ASC Data Model & Contracts</h3>
+          <div id="ascModel" class="ascmodel"></div>
+        </div>
+      </section>
+
+      <section id="view-connectors" class="view">
+        <div class="card">
+          <h3>Connectors (OOTB)</h3>
+          <div id="connectors" class="logos"></div>
+        </div>
+      </section>
+
+      <section id="view-gallery" class="view">
+        <div class="card">
+          <h3>Agent Gallery</h3>
+          <div id="agentGallery" class="gallery"></div>
+        </div>
+      </section>
+
+      <section id="view-timeline" class="view">
+        <div class="card">
+          <h3>Timeline & Traces</h3>
+          <div id="timeline" class="timeline"></div>
+        </div>
+      </section>
+
+      <section id="view-inbox" class="view">
+        <div class="card">
+          <h3>Inbox (Approvals)</h3>
+          <div id="inbox" class="inbox"></div>
+        </div>
+      </section>
+
+      <section id="view-audit" class="view">
+        <div class="grid two">
+          <div class="card">
+            <h3>Audit Log</h3>
+            <div id="auditLog" class="journal"></div>
+          </div>
+          <div class="card">
+            <h3>Export</h3>
+            <button id="exportPack" class="primary">Export AI‑Refinery Pack</button>
+            <div id="exportStatus" class="muted"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>© 2025 ASC‑OS Demo • All data & actions mocked</span>
+      </footer>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
