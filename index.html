@@ -23,11 +23,16 @@
         <button data-view="ascmodel">Data Contracts & ASC Model</button>
         <button data-view="connectors">Connectors</button>
         <button data-view="gallery">Agent Gallery</button>
+        <!-- New domain views for asset lifecycle -->
+        <button data-view="catalog">Assets Catalog</button>
+        <button data-view="lifecycle">Lifecycle</button>
+        <button data-view="mapping">Client Mapping</button>
+        <button data-view="deployment">Deployment</button>
+        <button data-view="provenance">Reuse & Provenance</button>
         <button data-view="timeline">Timeline</button>
         <button data-view="inbox">Inbox (Approvals)</button>
         <button data-view="audit">Audit & Export</button>
       </nav>
-      <div class="footnote">vNEXT • Static SPA • Cloudflare‑ready</div>
     </aside>
 
     <main>
@@ -74,11 +79,12 @@
             <h3>Guided Storyline</h3>
             <ol class="story">
               <li><strong>Control</strong>: Set Industry, Role, GxP, Threshold</li>
-              <li><strong>Run</strong>: Execute a curated scenario</li>
-              <li><strong>Value</strong>: See KPI deltas and the “So‑What”</li>
-              <li><strong>Mesh</strong>: Watch agents interact (policy checks inline)</li>
+              <li><strong>Catalog</strong>: Browse & select reusable assets</li>
+              <li><strong>Mapping</strong>: Map the asset to client systems & policies</li>
+              <li><strong>Deployment</strong>: Generate plan & export to AI‑Refinery</li>
+              <li><strong>Run</strong>: Execute scenario & see KPI deltas</li>
               <li><strong>Governance</strong>: Guardrails fired & approvals</li>
-              <li><strong>Architecture</strong>: ASC Model & Connectors</li>
+              <li><strong>Architecture</strong>: ASC Model, Connectors & Provenance</li>
             </ol>
             <div class="soWhat" id="soWhatBanner">So‑What: —</div>
             <div class="actions">
@@ -163,6 +169,49 @@
         <div class="card">
           <h3>Connectors (OOTB)</h3>
           <div id="connectors" class="logos"></div>
+        </div>
+      </section>
+
+      <!-- Assets Catalog view -->
+      <section id="view-catalog" class="view">
+        <div class="card">
+          <h3>Assets Catalog</h3>
+          <div id="assetCatalog" class="catalog"></div>
+        </div>
+      </section>
+
+      <!-- Lifecycle view -->
+      <section id="view-lifecycle" class="view">
+        <div class="card">
+          <h3>Asset Lifecycle</h3>
+          <div id="lifecycleStepper" class="stepper"></div>
+        </div>
+      </section>
+
+      <!-- Client Mapping view -->
+      <section id="view-mapping" class="view">
+        <div class="card">
+          <h3>Client Mapping Wizard</h3>
+          <div id="mappingWizard" class="wizard"></div>
+        </div>
+      </section>
+
+      <!-- Deployment view -->
+      <section id="view-deployment" class="view">
+        <div class="card">
+          <h3>Deployment Plan & Runbook</h3>
+          <div id="deploymentPlan" class="deployment"></div>
+        </div>
+      </section>
+
+      <!-- Reuse & Provenance view -->
+      <section id="view-provenance" class="view">
+        <div class="card">
+          <h3>Reuse & Provenance</h3>
+          <div id="provenanceChartContainer" class="provenance-container">
+            <canvas id="provenanceChart" width="640" height="260"></canvas>
+          </div>
+          <div id="provenanceDetails" class="provenance-details"></div>
         </div>
       </section>
 

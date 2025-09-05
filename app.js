@@ -74,6 +74,85 @@ const extraAgents = [
   'Sustainability','CO2Estimator','Warranty','VMI','Vulnerability'
 ];
 
+// New: Assets catalog with provenance and KPI impacts (mocked)
+const assetsCatalog = [
+  {
+    id:'ls_lot',
+    name:'LS — Lot Size & Safety Stock',
+    domain:'Life Sciences',
+    provenance:'Pfizer pilot',
+    kpis:{ ReleaseHours:'↓ -18 hrs', Deviations:'↓ -22%', Excursions:'↓ -17%' },
+    dependencies:['Forecast','Inventory','ServiceLevels'],
+    dependenciesStatus:{ Forecast:'OK', Inventory:'OK', ServiceLevels:'WARN' },
+    policies:['GxP Approval Required','Threshold >0.70 blocks commit'],
+    readiness:0.92,
+    version:'1.1',
+    packs:['Life Sciences Pack'],
+    runs:[
+      {client:'Pfizer', kpiImpact:{ ReleaseHours:-18, Deviations:-22, Excursions:-17 }, date:'2025-01-10'},
+      {client:'Top-10 LS Client', kpiImpact:{ ReleaseHours:-20, Deviations:-25, Excursions:-18 }, date:'2025-04-15'}
+    ]
+  },
+  {
+    id:'cpg_promo_agent',
+    name:'CPG — Promo Surge & Safety Stock',
+    domain:'CPG',
+    provenance:'Retail pilot',
+    kpis:{ OSA:'↑ +1.4 pts', Markdown:'↓ -$420k', Expedite:'↓ -$180k' },
+    dependencies:['Forecast','Orders','Inventory'],
+    dependenciesStatus:{ Forecast:'OK', Orders:'WARN', Inventory:'OK' },
+    policies:['Threshold >0.70 blocks commit'],
+    readiness:0.88,
+    version:'1.0',
+    packs:['CPG Pack'],
+    runs:[
+      {client:'Retailer A', kpiImpact:{ OSA:1.4, Markdown:-420, Expedite:-180 }, date:'2025-02-01'},
+      {client:'Retailer B', kpiImpact:{ OSA:1.6, Markdown:-400, Expedite:-160 }, date:'2025-06-01'}
+    ]
+  },
+  {
+    id:'ls_batch_release',
+    name:'LS — Batch Release Pacing',
+    domain:'Life Sciences',
+    provenance:'Pilot',
+    kpis:{ ReleaseHours:'↓ -12 hrs', Deviations:'↓ -15%', Excursions:'↓ -10%' },
+    dependencies:['Forecast','Orders','Telemetry (Cold‑Chain)'],
+    dependenciesStatus:{ Forecast:'OK', Orders:'OK', 'Telemetry (Cold‑Chain)':'OK' },
+    policies:['GxP Approval Required'],
+    readiness:0.90,
+    version:'0.9',
+    packs:['Life Sciences Pack'],
+    runs:[
+      {client:'Pfizer', kpiImpact:{ ReleaseHours:-12, Deviations:-15, Excursions:-10 }, date:'2024-11-12'},
+      {client:'Top-10 LS Client', kpiImpact:{ ReleaseHours:-14, Deviations:-18, Excursions:-12 }, date:'2025-03-20'}
+    ]
+  }
+];
+
+// Mock clients for mapping
+const clients = [
+  {name:'Top-10 LS Client', systems:['SAP S/4HANA','Manhattan WMS'], gxp:true, threshold:0.75},
+  {name:'Retailer A', systems:['Oracle ERP','Kinaxis','Snowflake'], gxp:false, threshold:0.65},
+  {name:'Retailer B', systems:['Oracle ERP','Blue Yonder','Snowflake'], gxp:false, threshold:0.68},
+  {name:'Pfizer', systems:['SAP S/4HANA','Manhattan WMS'], gxp:true, threshold:0.72}
+];
+
+// Lifecycle steps (static)
+const lifecycle = [
+  {id:'develop', title:'Develop', desc:'Create agent & logic'},
+  {id:'validate', title:'Validate', desc:'Test against data contracts & policies'},
+  {id:'catalog', title:'Catalog', desc:'Publish asset to repository'},
+  {id:'map', title:'Map', desc:'Map asset to client systems'},
+  {id:'deploy', title:'Deploy', desc:'Export plan to AI‑Refinery'},
+  {id:'measure', title:'Measure', desc:'Track KPIs & guardrails'},
+  {id:'upstream', title:'Upstream', desc:'Upstream improvements & version bumps'}
+];
+
+// Extend state for selected asset/client and deployment
+state.selectedAsset = null;
+state.selectedClient = null;
+state.deploymentPlan = null;
+
 // Policy mini-DSL (read-only)
 const policyDSL = `policy ReleaseAndCommit {
   when industry == "LifeSciences" and GxP == true {
@@ -100,6 +179,11 @@ window.addEventListener('DOMContentLoaded', () => {
   renderASCModel();
   renderConnectors();
   renderGallery();
+  renderCatalog();
+  renderLifecycle();
+  renderMapping();
+  renderDeployment();
+  renderProvenance();
   setPresenter(true);
   logInfo('ASC‑OS loaded');
 });
@@ -111,7 +195,14 @@ function bindNav(){
       btn.classList.add('active');
       const view = btn.dataset.view;
       $$('.view').forEach(v=>v.classList.remove('active'));
-      $('#view-'+view).classList.add('active');
+      const target = $('#view-'+view);
+      if(target){ target.classList.add('active'); }
+      // render dynamic views on navigation
+      if(view==='catalog') renderCatalog();
+      if(view==='lifecycle') renderLifecycle();
+      if(view==='mapping') renderMapping();
+      if(view==='deployment') renderDeployment();
+      if(view==='provenance') renderProvenance();
     });
   });
   $('#presenterMode').addEventListener('change',(e)=>setPresenter(e.target.checked));
@@ -150,7 +241,8 @@ function setPresenter(on){
 
 function startGuided(){
   // Programmatic path for presenters
-  const steps = ['control','value','mesh','governance','ascmodel','connectors'];
+  // Guided path includes catalog → mapping → deployment → value → mesh → governance → ascmodel → connectors → provenance
+  const steps = ['catalog','mapping','deployment','control','value','mesh','governance','ascmodel','connectors','provenance'];
   let i=0;
   const next = () => {
     if(i===0){ runScenario(); }
@@ -455,3 +547,267 @@ $('#exportPack').addEventListener('click', ()=>{
   a.href = url; a.download = 'ascos-refinery-pack.json'; a.click();
   $('#exportStatus').textContent = 'Exported ascos-refinery-pack.json';
 });
+
+// Render assets catalog
+function renderCatalog(){
+  const container = $('#assetCatalog');
+  if(!container) return;
+  container.innerHTML='';
+  assetsCatalog.forEach(asset=>{
+    const card = document.createElement('div');
+    card.className = 'asset-card';
+    // Compute short policies badges: use first word (e.g., GxP, Threshold)
+    const badges = asset.policies.map(p => {
+      const key = p.split(' ')[0];
+      const cls = key.toLowerCase().includes('gxp') ? 'warn' : (key.toLowerCase().includes('threshold') ? 'block' : 'ok');
+      return `<span class="badge ${cls}">${key}</span>`;
+    }).join(' ');
+    card.innerHTML = `<div class="title">${asset.name}</div>
+      <div class="meta">${asset.domain} • v${asset.version}</div>
+      <div class="meta muted">${asset.provenance}</div>
+      <div class="kpi-list">${Object.entries(asset.kpis).map(([k,v])=>`<span>${k}: ${v}</span>`).join('')}</div>
+      <div class="badge-container">${badges}</div>
+      <div class="actions">
+        <button class="primary preview" data-id="${asset.id}">Preview</button>
+        <button class="primary map" data-id="${asset.id}">Map</button>
+      </div>`;
+    container.appendChild(card);
+  });
+  // Attach listeners for preview & map
+  container.querySelectorAll('button.preview').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const id = e.target.dataset.id;
+      const asset = assetsCatalog.find(a=>a.id===id);
+      if(!asset) return;
+      alert(`Previewing ${asset.name}\n\nKPIs:\n${Object.entries(asset.kpis).map(([k,v])=>`${k}: ${v}`).join('\n')}`);
+    });
+  });
+  container.querySelectorAll('button.map').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const id = e.target.dataset.id;
+      state.selectedAsset = id;
+      // Update lifecycle stepper after selecting asset
+      renderLifecycle();
+      // Navigate to mapping view
+      document.querySelector('button[data-view="mapping"]').click();
+    });
+  });
+}
+
+// Render lifecycle stepper
+function renderLifecycle(){
+  const el = $('#lifecycleStepper');
+  if(!el) return;
+  el.innerHTML='';
+  lifecycle.forEach((step, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'step';
+    // Determine active based on simple heuristics
+    let active = false;
+    if(step.id==='develop') active = true;
+    if(step.id==='validate' && state.selectedAsset) active = true;
+    if(step.id==='catalog' && state.selectedAsset) active = true;
+    if(step.id==='map' && state.selectedAsset && state.selectedClient) active = true;
+    if(step.id==='deploy' && state.deploymentPlan) active = true;
+    if(step.id==='measure' && state.deploymentPlan) active = true;
+    if(step.id==='upstream' && state.deploymentPlan) active = true;
+    if(active) div.classList.add('active');
+    div.innerHTML = `<div class="num">${idx+1}</div><div class="label">${step.title}</div>`;
+    el.appendChild(div);
+  });
+}
+
+// Render mapping wizard
+function renderMapping(){
+  const el = $('#mappingWizard');
+  if(!el) return;
+  el.innerHTML='';
+  if(!state.selectedAsset){
+    el.innerHTML = '<div class="muted">Select an asset from the Catalog to start mapping.</div>';
+    return;
+  }
+  const asset = assetsCatalog.find(a=>a.id===state.selectedAsset);
+  if(!asset) return;
+  // Step 1: Asset overview
+  const step1 = document.createElement('div');
+  step1.className = 'wizard-step';
+  step1.innerHTML = `<h4>1. Asset Overview</h4><div><strong>${asset.name}</strong> — ${asset.domain}</div>
+    <div class="muted">Provenance: ${asset.provenance}</div>
+    <div style="margin-top:4px">Dependencies: ${asset.dependencies.join(', ')}</div>`;
+  el.appendChild(step1);
+  // Step 2: Choose Client
+  const step2 = document.createElement('div'); step2.className='wizard-step';
+  step2.innerHTML = '<h4>2. Select Client</h4>';
+  const select = document.createElement('select');
+  select.innerHTML = '<option value="">— Select —</option>' + clients.map(c=>`<option value="${c.name}" ${state.selectedClient===c.name?'selected':''}>${c.name}</option>`).join('');
+  select.addEventListener('change', e=>{
+    state.selectedClient = e.target.value || null;
+    renderMapping();
+    renderLifecycle();
+  });
+  step2.appendChild(select);
+  el.appendChild(step2);
+  // If client selected, show mapping summary
+  if(state.selectedClient){
+    const client = clients.find(c=>c.name===state.selectedClient);
+    // Step 3: Map Entities & Connectors
+    const step3 = document.createElement('div'); step3.className='wizard-step';
+    step3.innerHTML = '<h4>3. Map Entities & Connectors</h4>';
+    // Entities mapping display
+    const mapDiv = document.createElement('div'); mapDiv.className='map-entities';
+    asset.dependencies.forEach(dep=>{
+      const badge = document.createElement('div'); badge.className='entity-map';
+      badge.textContent = `${dep} → ${client.systems[0] || 'Connector'}`;
+      mapDiv.appendChild(badge);
+    });
+    step3.appendChild(mapDiv);
+    // Connectors display
+    const conn = document.createElement('div'); conn.style.marginTop='6px'; conn.innerHTML = `<strong>Connectors:</strong> ${client.systems.join(', ')}  •  Mock`;
+    step3.appendChild(conn);
+    // Policies display
+    const pol = document.createElement('div'); pol.style.marginTop='6px'; pol.innerHTML = `<strong>Policies:</strong> ${asset.policies.join('; ')}`;
+    step3.appendChild(pol);
+    el.appendChild(step3);
+    // Step 4: Policy validation settings
+    const step4 = document.createElement('div'); step4.className='wizard-step';
+    step4.innerHTML = '<h4>4. Policy & Threshold</h4>';
+    // GxP toggle and threshold slider; use client's default
+    const gxpDiv = document.createElement('div'); gxpDiv.style.marginBottom='6px';
+    const gxpLabel = document.createElement('label');
+    const gxpInput = document.createElement('input'); gxpInput.type = 'checkbox'; gxpInput.checked = client.gxp;
+    gxpInput.addEventListener('change', e=>{ client.gxp = e.target.checked; });
+    gxpLabel.appendChild(gxpInput);
+    gxpLabel.appendChild(document.createTextNode('  GxP mode'));
+    gxpDiv.appendChild(gxpLabel);
+    step4.appendChild(gxpDiv);
+    const thrDiv = document.createElement('div'); thrDiv.innerHTML = `<label>Threshold: </label><input type="range" min="0" max="1" step="0.01" value="${client.threshold.toFixed(2)}" style="width:140px;"/> <span class="muted">${client.threshold.toFixed(2)}</span>`;
+    const thrInput = thrDiv.querySelector('input'); const thrSpan = thrDiv.querySelector('span');
+    thrInput.addEventListener('input', e=>{ client.threshold = parseFloat(e.target.value); thrSpan.textContent = client.threshold.toFixed(2); });
+    step4.appendChild(thrDiv);
+    el.appendChild(step4);
+    // Step 5: Generate plan button
+    const step5 = document.createElement('div'); step5.className='wizard-step';
+    const btn = document.createElement('button'); btn.textContent = 'Generate Deployment Plan';
+    btn.addEventListener('click', ()=>{
+      // Build deployment plan
+      state.deploymentPlan = {
+        asset: asset,
+        client: client,
+        connectors: client.systems,
+        policies: asset.policies,
+        gxp: client.gxp,
+        threshold: client.threshold
+      };
+      logInfo(`Generated deployment plan for asset ${asset.name} and client ${client.name}`);
+      // Navigate to deployment view
+      document.querySelector('button[data-view="deployment"]').click();
+    });
+    step5.appendChild(btn);
+    el.appendChild(step5);
+  }
+}
+
+// Render deployment plan
+function renderDeployment(){
+  const el = $('#deploymentPlan');
+  if(!el) return;
+  el.innerHTML='';
+  if(!state.deploymentPlan){
+    el.innerHTML = '<div class="muted">Generate a deployment plan via the Mapping wizard.</div>';
+    return;
+  }
+  const plan = state.deploymentPlan;
+  const asset = plan.asset; const client = plan.client;
+  // Plan items
+  const list = [
+    {label:'Asset', value: asset.name},
+    {label:'Client', value: client.name},
+    {label:'Domain', value: asset.domain},
+    {label:'Connectors', value: plan.connectors.join(', ') + '  •  Mock'},
+    {label:'Policies', value: plan.policies.join('; ')},
+    {label:'GxP', value: plan.gxp ? 'Enabled' : 'Disabled'},
+    {label:'Threshold', value: plan.threshold.toFixed(2)},
+    {label:'Runtime Target', value: 'AI Refinery / Trusted Agent Huddle'},
+    {label:'SLO', value: 'Decision latency <2s; Cost < $0.05/decision'},
+    {label:'Rollback', value:'Manual approval required; revert to previous version'},
+    {label:'Observability', value:'Audit log, KPI deltas & guardrails logged'}
+  ];
+  list.forEach(item=>{
+    const div = document.createElement('div'); div.className='plan-item';
+    div.innerHTML = `<strong>${item.label}:</strong> ${item.value}`;
+    el.appendChild(div);
+  });
+  const btn = document.createElement('button'); btn.textContent = 'Deploy to AI Refinery (Mock)';
+  btn.addEventListener('click', ()=>{
+    // Simulate deployment
+    logInfo(`Deployment plan for ${asset.name} sent to AI Refinery (mock)`);
+    const status = document.createElement('div'); status.className='status';
+    status.textContent = 'Deployment plan exported. Awaiting runtime execution.';
+    el.appendChild(status);
+    // After deploy, mark measure & upstream steps active
+    renderLifecycle();
+  });
+  el.appendChild(btn);
+}
+
+// Compute provenance scores for bar chart
+function computeProvenanceScores(){
+  return assetsCatalog.map(asset=>{
+    // compute average absolute improvement across runs
+    let totalScore = 0;
+    asset.runs.forEach(run=>{
+      const values = Object.values(run.kpiImpact);
+      values.forEach(v=>{ totalScore += Math.abs(v); });
+    });
+    const avg = totalScore / asset.runs.length;
+    return {id: asset.id, name: asset.name, avg: avg, color: asset.domain==='Life Sciences' ? '#7aa2f7' : (asset.domain==='CPG' ? '#ffd166' : '#ef476f')};
+  });
+}
+
+// Draw provenance bar chart
+function drawProvenance(){
+  const canvas = document.getElementById('provenanceChart');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const data = computeProvenanceScores();
+  if(data.length===0) return;
+  const maxVal = Math.max(...data.map(d=>d.avg));
+  const barWidth = canvas.width / (data.length*1.5);
+  const gap = barWidth/2;
+  data.forEach((d,i)=>{
+    const x = i * (barWidth + gap) + gap/2;
+    const barHeight = (d.avg / maxVal) * (canvas.height - 40);
+    const y = canvas.height - barHeight - 20;
+    ctx.fillStyle = d.color;
+    ctx.fillRect(x,y,barWidth,barHeight);
+    // label below
+    ctx.fillStyle = '#cbd5ff';
+    ctx.font = '12px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.name.split(' — ')[0], x + barWidth/2, canvas.height - 6);
+  });
+  // y-axis ticks
+  ctx.strokeStyle = '#2a3146';
+  ctx.beginPath(); ctx.moveTo(0, canvas.height-20); ctx.lineTo(canvas.width, canvas.height-20); ctx.stroke();
+}
+
+// Render provenance view
+function renderProvenance(){
+  const chart = document.getElementById('provenanceChart');
+  if(chart){ drawProvenance(); }
+  const details = document.getElementById('provenanceDetails');
+  if(!details) return;
+  details.innerHTML='';
+  assetsCatalog.forEach(asset=>{
+    const div = document.createElement('div');
+    div.innerHTML = `<strong>${asset.name}</strong> — Runs: ${asset.runs.length}`;
+    asset.runs.forEach(run=>{
+      const sub = document.createElement('div'); sub.style.marginLeft='12px';
+      const kpiList = Object.entries(run.kpiImpact).map(([k,v])=>`${k}: ${v}`).join(', ');
+      sub.textContent = `${run.client} (${run.date}): ${kpiList}`;
+      div.appendChild(sub);
+    });
+    details.appendChild(div);
+  });
+}
